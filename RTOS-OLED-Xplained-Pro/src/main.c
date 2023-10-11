@@ -19,19 +19,21 @@
 #define BTN_PIO_PIN 11
 #define BTN_PIO_PIN_MASK (1 << BTN_PIO_PIN)
 
-
-
 /************************************************************************/
 /* prototypes and types                                                 */
 /************************************************************************/
 
 void btn_init(void);
 void RTT_init(float freqPrescale, uint32_t IrqNPulses, uint32_t rttIRQSource);
+void but_callback(void);
 
 /************************************************************************/
 /* rtos vars                                                            */
 /************************************************************************/
 
+SemaphoreHandle_t xBtnSemaphore;
+
+QueueHandle_t xQueueCoins;
 
 /************************************************************************/
 /* RTOS application funcs                                               */
@@ -63,14 +65,35 @@ extern void vApplicationMallocFailedHook(void) {
 /************************************************************************/
 
 void but_callback(void) {
-
+	xSemaphoreGiveFromISR(xBtnSemaphore, 0);
 }
-
 
 /************************************************************************/
 /* TASKS                                                                */
 /************************************************************************/
 
+static void task_coins(void *pvParameters)
+{
+	for (;;)  {
+		if (xSemaphoreTake(xBtnSemaphore, 500)) {
+			printf("semaforo funcionou\n");
+			// tone(100, 600);
+			
+			/*xQueueSend(xQueueCoins, (void *)&DADO, 10);*/
+		}
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+	}
+}
+
+static void task_play(void *pvParameters)
+{
+	for (;;)  {
+// 		if (xQueueReceive(xQueueCoins, &DADO, 500)) {
+// 		// 	tone(100, 600);
+// 		}
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+	}
+}
 
 static void task_debug(void *pvParameters) {
 	gfx_mono_ssd1306_init();
@@ -89,6 +112,18 @@ static void task_debug(void *pvParameters) {
 /************************************************************************/
 /* funcoes                                                              */
 /************************************************************************/
+
+// void tone(int freq, int dur) {
+// 	int tempo = 0;
+// 	int duracao = (1000000 / (2*freq));
+// 	while (tempo < dur * 0.9 * 1000){
+// 		pio_set(BUZZER_PIO, BUZZER_PIO_IDX_MASK);
+// 		delay_us(duracao);
+// 		pio_clear(BUZZER_PIO, BUZZER_PIO_IDX_MASK);
+// 		delay_us(duracao);
+// 		tempo += duracao;
+// 	}
+// }
 
 void btn_init(void) {
 	// Inicializa clock do periférico PIO responsavel pelo botao
@@ -166,18 +201,38 @@ static void configure_console(void) {
 /* main                                                                 */
 /************************************************************************/
 int main(void) {
+	
+	// CRIANDO SEMAPHORE
+	xBtnSemaphore = xSemaphoreCreateBinary();
+	if (xBtnSemaphore == NULL)
+	printf("falha em criar o semaforo btn \n");
+	
+	// CRIANDO QUEUE
+	xQueueCoins = xQueueCreate(100, sizeof(int));
+	if (xQueueCoins == NULL)
+	printf("falha em criar a queue xQueueProc \n");
+	
 	/* Initialize the SAM system */
 	sysclk_init();
 	board_init();
+	btn_init();
 
 	/* Initialize the console uart */
 	configure_console();
 	
-	if (xTaskCreate(task_debug, "debug", TASK_OLED_STACK_SIZE, NULL,
-	TASK_OLED_STACK_PRIORITY, NULL) != pdPASS) {
+	if (xTaskCreate(task_debug, "debug", TASK_OLED_STACK_SIZE, NULL, TASK_OLED_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create debug task\r\n");
 	}
+	
+	// CRIANDO TASKS
+	if (xTaskCreate(task_coins, "coins", TASK_OLED_STACK_SIZE, NULL, TASK_OLED_STACK_PRIORITY, NULL) != pdPASS) {
+		printf("Failed to create coins task\r\n");
+	}
 
+	if (xTaskCreate(task_play, "play", TASK_OLED_STACK_SIZE, NULL, TASK_OLED_STACK_PRIORITY, NULL) != pdPASS) {
+		printf("Failed to create play task\r\n");
+	}
+	
 	/* Start the scheduler. */
 	vTaskStartScheduler();
 
