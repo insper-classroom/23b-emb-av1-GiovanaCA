@@ -96,12 +96,12 @@ void tone(int frequency, int duration) {
 		}
 	}
 	// delay
-	int tempo = 0;
-	while (tempo < duration * 0.1 * 1000){
-		pio_clear(BUZZER_PIO, BUZZER_PIO_IDX_MASK);
-		delay_ms(1);
-		tempo += 1000;
-	}
+// 	int tempo = 0;
+// 	while (tempo < duration * 0.1 * 1000){
+// 		pio_clear(BUZZER_PIO, BUZZER_PIO_IDX_MASK);
+// 		delay_ms(1);
+// 		tempo += 1000;
+// 	}
 }
 
 /************************************************************************/
@@ -111,7 +111,7 @@ void tone(int frequency, int duration) {
 static void task_coins(void *pvParameters)
 {	
 	for (;;)  {
-		if (xSemaphoreTake(xBtnSemaphore, 500)) {
+		if (xSemaphoreTake(xBtnSemaphore, 1)) {
 			if (flag_rtt == 0) {
 				// COMECANDO SRAND	
 				uint32_t tempo = rtt_read_timer_value(RTT);
@@ -121,9 +121,9 @@ static void task_coins(void *pvParameters)
 			}
 			int coins = rand() % 3 + 1;
 			printf("Coins: %d\n", coins);
-			xQueueSend(xQueueCoins, (void *)&coins, 10);
+			xQueueSend(xQueueCoins, (void *)&coins, 1);
 		}
-		vTaskDelay(500 / portTICK_PERIOD_MS);
+		vTaskDelay(1);
 	}
 }
 
@@ -131,13 +131,13 @@ static void task_play(void *pvParameters)
 {
 	for (;;)  {
 		int coins;
-		if (xQueueReceive(xQueueCoins, &coins, 500)) {
+		if (xQueueReceive(xQueueCoins, &coins, 1)) {
 			for (int i = 0; i < coins; i++){
 				tone(NOTE_B5,  80);
 				tone(NOTE_E6, 640);
 			}
 		}
-		vTaskDelay(500 / portTICK_PERIOD_MS);
+		vTaskDelay(1);
 	}
 }
 
