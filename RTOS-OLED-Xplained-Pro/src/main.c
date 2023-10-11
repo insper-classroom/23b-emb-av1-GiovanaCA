@@ -132,7 +132,6 @@ static void task_play(void *pvParameters)
 	for (;;)  {
 		int coins;
 		if (xQueueReceive(xQueueCoins, &coins, 500)) {
-			printf("QUEUE COINS: %d\n", coins);
 			for (int i = 0; i < coins; i++){
 				tone(NOTE_B5,  80);
 				tone(NOTE_E6, 640);
